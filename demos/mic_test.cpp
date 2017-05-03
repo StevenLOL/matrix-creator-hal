@@ -9,6 +9,8 @@
 #include <cmath>
 #include <iostream>
 #include <valarray>
+#include <fstream>
+#include <sstream>
 
 #include "../cpp/driver/microphone_array.h"
 #include "../cpp/driver/everloop_image.h"
@@ -35,7 +37,7 @@ int main() {
   std::valarray<float> magnitude(mics.Channels());
 
   std::valarray<float> coeff_hp = {
-  0.0599851024734,-1.300381417101e-17,  -0.1549721713331,  -0.1626987043005,
+    0.0599851024734,-1.300381417101e-17,  -0.1549721713331,  -0.1626987043005,
      0.1053874898562,   0.2920599418361,   0.1053874898562,  -0.1626987043005,
     -0.1549721713331,-1.300381417101e-17,   0.0599851024734
   };
@@ -53,50 +55,64 @@ int main() {
   std::valarray<FIR> filter_bank_lp(mics.Channels());
   for (auto& iir : filter_bank_lp) iir.Setup(coeff_lp);
 
+  std::ofstream myfile;
+  // myfile.open ("mics.log");
+  // myfile << "MIC1\tMIC2\tMIC3\tMIC4\tMIC5\tMIC6\tMIC7\tMIC8" << std::endl;
+  // myfile.close();
+  // myfile.open ("mics.log", std::ofstream::app);
+
+  std::valarray<std::valarray<float>> values(std::valarray<float>(mics.Channels()),mics.NumberOfSamples());
+  std::valarray<float> average(0.0,mics.Channels());
+  std::valarray<float> max(-10000.0,mics.Channels());
+  std::valarray<float> min(10000.0,mics.Channels());
+  std::valarray<float> amp(0.0,mics.Channels());
+
+  myfile.open ("mics.log");
+  // myfile << "MIC1\tMIC2\tMIC3\tMIC4\tMIC5\tMIC6\tMIC7\tMIC8\tMIN\tMAX\tAVE" << std::endl;
+  myfile << "MIC1\tMIC2\tMIC3\tMIC4\tMIC5\tMIC6\tMIC7\tMIC8\t" << std::endl;
+    
   while (true) {
     mics.Read();
-    magnitude = 0.0;
-    for (unsigned int s = 0; s < mics.NumberOfSamples(); s++) {
-      for (unsigned int c = 0; c < mics.Channels(); c++) {
-        float x = filter_bank_hp[c].Filter(mics.At(s, c));
-//        magnitude[c] += filter_bank_lp[c].Filter(x * x);
-        magnitude[c] += x * x ;
-      }
+    
+    for (int i = 0; i < 8; ++i)
+    {
+      average[i] = 0;
+      min[i] = 10000;
+      max[i] = -10000;
+      amp[i] = 0;
     }
-
-    for (auto& m : magnitude) {
-      m = std::sqrt(1.0 / (float)mics.NumberOfSamples() * m);
-    }
-
+           
+    // std::valarray<float> values(mics.NumberOfSamples());
     for (unsigned int c = 0; c < mics.Channels(); c++) {
+      for (unsigned int s = 0; s < mics.NumberOfSamples(); s++) {
+        // float x = filter_bank_hp[c].Filter(mics.At(s, c));
+        // values[s] = filter_bank_lp[c].Filter(x);
 
-      image1d.leds[lookup[c]].green = magnitude[c];
-      image1d.leds[lookup[c]].green = magnitude[c] / 20;
-      image1d.leds[lookup[c] + 1].green = magnitude[c] / 100;
-      image1d.leds[lookup[c] + 2].green = magnitude[c] / 200;
-      image1d.leds[lookup[c] + 3].green = magnitude[c] / 500;
+        values[c][s] = filter_bank_lp[c].Filter(mics.At(s, c));
+        // values[c][s] = mics.At(s, c);
 
-      int count = magnitude[c] / 10;
-      if(count > 50) count = 50;
-      if(count == 0) count = 1;
-
-      for(int i=0 ; i < count; i++){
-      	std::cout << "0" ;
+        if(values[c][s] > max[c]) max[c] = values[c][s];
+        if(values[c][s] < min[c]) min[c] = values[c][s];
+        average[c] += values[c][s];
       }
-
-      for(int i=0 ; i < 50 - count; i++){
-      	std::cout << " " ;
-      }
-
-      std::cout << " " ;
-      std::cout << " " ;
-      std::cout << " " ;
+      average[c] = average[c] / mics.NumberOfSamples();
+      max[c] = max[c] - average[c];
+      min[c] = min[c] - average[c];
+      amp[c] = max[c] - min[c];
     }
-
+    // for (unsigned int s = 0; s < mics.NumberOfSamples(); s++) {
+    for (unsigned int c = 0; c < mics.Channels(); c++) {
+      // myfile << values[c][s] << " \t " << min[c] << " \t " << max[c] << " \t "  << average[c] << " \t " ;
+      myfile << amp[c] << " \t " ;
+      std::cout << amp[c] << " \t " ;
+    }
+    myfile << std::endl;
     std::cout << std::endl;
 
-    everloop.Write(&image1d);
+    // }
+    // return 0;
   }
+    myfile.close();
 
   return 0;
 }

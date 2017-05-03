@@ -35,10 +35,11 @@ int main() {
   std::valarray<float> magnitude(mics.Channels());
 
   std::valarray<float> coeff_hp = {
-   0.0599851024734,-1.300381417101e-17,  -0.1549721713331,  -0.1626987043005,
+  0.0599851024734,-1.300381417101e-17,  -0.1549721713331,  -0.1626987043005,
      0.1053874898562,   0.2920599418361,   0.1053874898562,  -0.1626987043005,
     -0.1549721713331,-1.300381417101e-17,   0.0599851024734
   };
+
   std::valarray<FIR> filter_bank_hp(mics.Channels());
   for (auto& iir : filter_bank_hp) iir.Setup(coeff_hp);
 
@@ -58,7 +59,8 @@ int main() {
     for (unsigned int s = 0; s < mics.NumberOfSamples(); s++) {
       for (unsigned int c = 0; c < mics.Channels(); c++) {
         float x = filter_bank_hp[c].Filter(mics.At(s, c));
-        magnitude[c] += filter_bank_lp[c].Filter(x * x);
+//        magnitude[c] += filter_bank_lp[c].Filter(x * x);
+        magnitude[c] += x * x ;
       }
     }
 
@@ -67,9 +69,30 @@ int main() {
     }
 
     for (unsigned int c = 0; c < mics.Channels(); c++) {
-      image1d.leds[lookup[c]].green = magnitude[c] / 512;
-      std::cout << image1d.leds[lookup[c]].green << "\t";
+
+      image1d.leds[lookup[c]].green = magnitude[c];
+      image1d.leds[lookup[c]].green = magnitude[c] / 20;
+      image1d.leds[lookup[c] + 1].green = magnitude[c] / 100;
+      image1d.leds[lookup[c] + 2].green = magnitude[c] / 200;
+      image1d.leds[lookup[c] + 3].green = magnitude[c] / 500;
+
+      int count = magnitude[c] / 10;
+      if(count > 50) count = 50;
+      if(count == 0) count = 1;
+
+      for(int i=0 ; i < count; i++){
+      	std::cout << "0" ;
+      }
+
+      for(int i=0 ; i < 50 - count; i++){
+      	std::cout << " " ;
+      }
+
+      std::cout << " " ;
+      std::cout << " " ;
+      std::cout << " " ;
     }
+
     std::cout << std::endl;
 
     everloop.Write(&image1d);
